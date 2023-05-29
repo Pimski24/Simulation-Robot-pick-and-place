@@ -1,0 +1,190 @@
+"""Sample Webots controller for the pick and place benchmark."""
+
+from controller import Robot
+
+# Create the Robot instance.
+robot = Robot()
+
+# Get the time step of the current world.
+timestep = int(robot.getBasicTimeStep())
+
+# Inizialize base motors.
+wheels = []
+wheels.append(robot.getMotor("wheel1"))
+wheels.append(robot.getMotor("wheel2"))
+wheels.append(robot.getMotor("wheel3"))
+wheels.append(robot.getMotor("wheel4"))
+for wheel in wheels:
+    # Activate controlling the motors setting the velocity.
+    # Otherwise by default the motor expects to be controlled in force or position,
+    # and setVelocity will set the maximum motor velocity instead of the target velocity.
+    wheel.setPosition(float('+inf'))
+
+# These sensors can be used to get the current joint position and monitor the joint movements.
+wheelPositionSensor = robot.getPositionSensor("wheel1sensor")
+wheelPositionSensor.enable(timestep)
+
+# Initialize arm motors.
+armMotors = []
+armMotors.append(robot.getMotor("arm1"))
+armMotors.append(robot.getMotor("arm2"))
+armMotors.append(robot.getMotor("arm3"))
+armMotors.append(robot.getMotor("arm4"))
+armMotors.append(robot.getMotor("arm5"))
+# Set the maximum motor velocity.
+armMotors[0].setVelocity(0.2)
+armMotors[1].setVelocity(0.5)
+armMotors[2].setVelocity(0.5)
+armMotors[3].setVelocity(0.3)
+
+# Initialize arm position sensors.
+# These sensors can be used to get the current joint position and monitor the joint movements.
+armPositionSensors = []
+armPositionSensors.append(robot.getPositionSensor("arm1sensor"))
+armPositionSensors.append(robot.getPositionSensor("arm2sensor"))
+armPositionSensors.append(robot.getPositionSensor("arm3sensor"))
+armPositionSensors.append(robot.getPositionSensor("arm4sensor"))
+armPositionSensors.append(robot.getPositionSensor("arm5sensor"))
+for sensor in armPositionSensors:
+    sensor.enable(timestep)
+    
+# Initialize grippers motors.
+fingerMotors = []
+fingerMotors.append(robot.getMotor("finger1"))
+fingerMotors.append(robot.getMotor("finger2"))
+# Set the maximum motor velocity.
+for finger in fingerMotors:
+    finger.setVelocity(0.3)
+# Initialize gripper position sensors.
+# These sensors can be used to get the current joint position and monitor the joint movements.
+fingerPositionSensors = []
+fingerPositionSensors.append(robot.getPositionSensor("finger1sensor"))
+fingerPositionSensors.append(robot.getPositionSensor("finger2sensor"))
+for sensor in fingerPositionSensors:
+    sensor.enable(timestep)
+# Read the minimum and maximum position of the gripper motors.
+fingerMinPosition = fingerMotors[0].getMinPosition()
+fingerMaxPosition = fingerMotors[0].getMaxPosition()
+
+
+# Define the conversion factors for linear position.
+initialPosition = [-2.4, 0, 0]
+cubePosition = [1, 0.205, 0]
+wheelRadius = 0.05
+
+# Monitor the wheel position to detect when the motion is completed.
+while robot.step(timestep) != -1:
+    currentPosition = [-2.4, 0, 0]
+    # Read the wheel rotational position sensor values.
+    wheelRotation = wheelPositionSensor.getValue()
+    # Convert the rotational position to linear position.
+    wheelPosition = wheelRotation * wheelRadius
+    currentPosition[0] += wheelPosition
+    # Do something with the wheel linear position values.
+    print("Current position:", currentPosition)
+    for wheel in wheels:
+        wheel.setVelocity(10.0)
+    # Check if the robot has reached the target position.
+    if abs(cubePosition[0] - 0.5) < currentPosition[0]:
+        # Motion completed. Stop the wheels.
+        for wheel in wheels:
+            wheel.setVelocity(0.0)
+        break
+
+
+# Move arm and open gripper.
+armMotors[1].setPosition(-0.55)
+armMotors[2].setPosition(-0.9)
+armMotors[3].setPosition(-1.5)
+for finger in fingerMotors:
+    finger.setPosition(fingerMaxPosition)
+
+# Monitor the arm joint position to detect when the motion is completed.
+while robot.step(timestep) != -1:
+    if abs(armPositionSensors[3].getValue() - (-1.2)) < 0.01:
+        # Motion completed.
+        break
+
+# Close gripper.
+for finger in fingerMotors:
+    finger.setPosition(0.013)
+
+# Wait until the gripper is closed.
+while robot.step(timestep) != -1:
+    if abs(fingerPositionSensors[0].getValue() - 0.013) < 0.001 and abs(fingerPositionSensors[1].getValue() - 0.013) < 0.001:
+        # Gripper closed.
+        break
+
+
+# Lift arm.
+armMotors[1].setPosition(0)
+# Wait until the arm is lifted.
+# while robot.step(timestep) != -1:
+#     if abs(armMotors[1].getPosition()) < 0.001:
+#         # Arm lifted.
+#         break
+
+# Rotate the robot.
+wheels[0].setVelocity(2.5)
+wheels[1].setVelocity(-2.5)
+wheels[2].setVelocity(2.5)
+wheels[3].setVelocity(-2.5)
+# Wait for a fixed amount of steps for the robot to rotate.
+robot.step(690 * timestep)
+
+# Move forward.
+wheels[1].setVelocity(2.5)
+wheels[3].setVelocity(2.5)
+robot.step(900 * timestep)
+
+# Rotate the robot.
+wheels[0].setVelocity(1.0)
+wheels[1].setVelocity(-1.0)
+wheels[2].setVelocity(1.0)
+wheels[3].setVelocity(-1.0)
+robot.step(200 * timestep)
+
+# Move forward.
+wheels[1].setVelocity(1.0)
+wheels[3].setVelocity(1.0)
+robot.step(300 * timestep)
+
+# Rotate the robot.
+wheels[0].setVelocity(1.0)
+wheels[1].setVelocity(-1.0)
+wheels[2].setVelocity(1.0)
+wheels[3].setVelocity(-1.0)
+robot.step(130 * timestep)
+
+# Move forward.
+wheels[1].setVelocity(1.0)
+wheels[3].setVelocity(1.0)
+robot.step(310 * timestep)
+
+# Stop.
+for wheel in wheels:
+    wheel.setVelocity(0.0)
+
+# Move arm down.
+armMotors[3].setPosition(0)
+armMotors[2].setPosition(-0.3)
+
+# Monitor the arm joint position to detect when the motion is completed.
+while robot.step(timestep) != -1:
+    if abs(armPositionSensors[3].getValue() - 0) < 0.001 and abs(armPositionSensors[2].getValue() - (-0.3)) < 0.001:
+        # Motion completed.
+        break
+
+armMotors[1].setPosition(-1.0)
+armMotors[3].setPosition(-1.0)
+armMotors[2].setPosition(-0.4)
+
+# Monitor the arm joint position to detect when the motion is completed.
+while robot.step(timestep) != -1:
+    if abs(armPositionSensors[1].getValue() - (-1.0)) < 0.001 and abs(armPositionSensors[3].getValue() - (-1.0)) < 0.001 and abs(armPositionSensors[2].getValue() - (-0.4)) < 0.001:
+        # Motion completed.
+        break
+
+# Open gripper.
+for finger in fingerMotors:
+    finger.setPosition(fingerMaxPosition)
